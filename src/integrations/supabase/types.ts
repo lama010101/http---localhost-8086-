@@ -244,6 +244,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           display_name: string | null
+          earned_badges: string[] | null
           id: string
           updated_at: string | null
         }
@@ -253,6 +254,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
+          earned_badges?: string[] | null
           id: string
           updated_at?: string | null
         }
@@ -262,6 +264,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string | null
+          earned_badges?: string[] | null
           id?: string
           updated_at?: string | null
         }
@@ -282,6 +285,45 @@ export type Database = {
           id?: string
           updated_at?: string | null
           value?: Json
+        }
+        Relationships: []
+      },
+      badges: {
+        Row: {
+          id: string
+          name: string
+          description: string
+          icon_name: string
+          category: string
+          difficulty: string
+          requirement_code: string
+          requirement_value: number
+          image_url?: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description: string
+          icon_name: string
+          category: string
+          difficulty: string
+          requirement_code: string
+          requirement_value: number
+          image_url?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string
+          icon_name?: string
+          category?: string
+          difficulty?: string
+          requirement_code?: string
+          requirement_value?: number
+          image_url?: string
+          created_at?: string
         }
         Relationships: []
       }

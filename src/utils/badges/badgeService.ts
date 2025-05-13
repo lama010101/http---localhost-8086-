@@ -1,4 +1,12 @@
 
+/**
+ * Badge Service - Handles badge-related operations
+ * 
+ * NOTE: Type assertions are used throughout this file as a workaround for TypeScript errors
+ * related to the Supabase schema. In a production environment, it would be better to
+ * properly define the database schema types in the Supabase client configuration.
+ */
+
 import { supabase } from '@/integrations/supabase/client';
 import { 
   Badge, 
@@ -7,6 +15,27 @@ import {
   BadgeEvaluation, 
   BadgeRequirementCode 
 } from './types';
+
+// Define badge database schema type
+interface BadgeRecord {
+  id: string;
+  name: string;
+  description: string;
+  icon_name: string;
+  category: string;
+  difficulty: string;
+  requirement_code: string;
+  requirement_value: number;
+  image_url?: string;
+  created_at: string;
+}
+
+/**
+ * Badge Service - Handles badge-related operations
+ * 
+ * This service provides functions for managing badges in the application.
+ * We've updated the Supabase schema types to include the badges table.
+ */
 
 // Function to fetch all available badges from the database
 export async function fetchAllBadges(): Promise<Badge[]> {
@@ -19,6 +48,8 @@ export async function fetchAllBadges(): Promise<Badge[]> {
       console.error('Error fetching badges:', error);
       return [];
     }
+
+    if (!data) return [];
 
     return data.map(badgeData => ({
       id: badgeData.id,
@@ -35,6 +66,17 @@ export async function fetchAllBadges(): Promise<Badge[]> {
     console.error('Error in fetchAllBadges:', error);
     return [];
   }
+}
+
+// Define profile database schema type
+interface ProfileRecord {
+  id: string;
+  display_name?: string;
+  avatar_url?: string;
+  email?: string;
+  created_at: string;
+  updated_at?: string;
+  earned_badges?: string[];
 }
 
 // Function to fetch earned badges for a user
@@ -201,12 +243,13 @@ export async function createBadge(badge: Omit<Badge, 'id'>): Promise<string | nu
       })
       .select('id')
       .single();
-      
+
     if (error) {
       console.error('Error creating badge:', error);
       return null;
     }
-    
+
+    if (!data) return null;
     return data.id;
   } catch (error) {
     console.error('Error in createBadge:', error);
@@ -230,12 +273,12 @@ export async function updateBadge(badge: Badge): Promise<boolean> {
         image_url: badge.imageUrl
       })
       .eq('id', badge.id);
-      
+
     if (error) {
       console.error('Error updating badge:', error);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error in updateBadge:', error);
@@ -250,12 +293,12 @@ export async function deleteBadge(badgeId: string): Promise<boolean> {
       .from('badges')
       .delete()
       .eq('id', badgeId);
-      
+
     if (error) {
       console.error('Error deleting badge:', error);
       return false;
     }
-    
+
     return true;
   } catch (error) {
     console.error('Error in deleteBadge:', error);

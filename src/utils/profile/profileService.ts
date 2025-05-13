@@ -62,18 +62,64 @@ export async function fetchUserProfile(userId: string): Promise<UserProfile | nu
 }
 
 // Update user avatar
-export async function updateUserAvatar(userId: string, avatarId: string): Promise<boolean> {
+// Find a matching avatar based on user's display name
+export async function findMatchingAvatar(displayName: string | undefined, isGuest: boolean = false): Promise<Avatar | null> {
   try {
-    // Get the avatar image URL
-    const { data: avatarData, error: avatarError } = await supabase
-      .from('avatars')
-      .select('image_url')
-      .eq('id', avatarId)
-      .single();
+    if (!displayName) return null;
+    
+    // Get all available avatars
+    const avatars = await fetchAvatars();
+    if (avatars.length === 0) return null;
+    
+    // For guest users, try to find an avatar with 'guest' in the name
+    if (isGuest) {
+      const guestAvatars = avatars.filter(avatar => 
+        avatar.name.toLowerCase().includes('guest'));
       
-    if (avatarError || !avatarData) {
-      console.error('Error fetching avatar:', avatarError);
-      return false;
+      if (guestAvatars.length > 0) {
+        // Return a random guest avatar
+        return guestAvatars[Math.floor(Math.random() * guestAvatars.length)];
+      }
+    }
+    
+    // Get the first letter of the display name
+    const firstLetter = displayName.charAt(0).toLowerCase();
+    
+    // Try to find an avatar that starts with the same letter
+    const matchingAvatars = avatars.filter(avatar => 
+      avatar.name.charAt(0).toLowerCase() === firstLetter);
+    
+    if (matchingAvatars.length > 0) {
+      // Return a random matching avatar
+      return matchingAvatars[Math.floor(Math.random() * matchingAvatars.length)];
+    }
+    
+    // If no match found, return a random avatar
+    return avatars[Math.floor(Math.random() * avatars.length)];
+  } catch (error) {
+    console.error('Error in findMatchingAvatar:', error);
+    return null;
+  }
+}
+
+export async function updateUserAvatar(userId: string, avatarId: string, customImageUrl: string | null = null): Promise<boolean> {
+  try {
+    let imageUrl = customImageUrl;
+    
+    // If no custom image URL provided, fetch from avatars table
+    if (!customImageUrl) {
+      const { data: avatarData, error: avatarError } = await supabase
+        .from('avatars')
+        .select('image_url')
+        .eq('id', avatarId)
+        .single();
+        
+      if (avatarError || !avatarData) {
+        console.error('Error fetching avatar:', avatarError);
+        return false;
+      }
+      
+      imageUrl = avatarData.image_url;
     }
     
     // Update the user profile with the new avatar
@@ -81,7 +127,7 @@ export async function updateUserAvatar(userId: string, avatarId: string): Promis
       .from('profiles')
       .update({ 
         avatar_url: avatarId,
-        avatar_image_url: avatarData.image_url,
+        avatar_image_url: imageUrl,
         updated_at: new Date().toISOString()
       })
       .eq('id', userId);
@@ -213,7 +259,9 @@ export async function fetchUserSettings(userId: string): Promise<UserSettings | 
       return null;
     }
 
-    return data.value as UserSettings;
+    // Add type assertion and handle potential JSON parsing
+    const settings = data.value as unknown;
+    return settings as UserSettings;
   } catch (error) {
     console.error('Error in fetchUserSettings:', error);
     return null;
@@ -237,13 +285,16 @@ export async function updateUserSettings(userId: string, settings: UserSettings)
     
     // If settings exist, update them
     if (data) {
+      // Convert settings to a JSON-compatible format
+      const settingsJson = JSON.parse(JSON.stringify(settings));
+      
       const { error } = await supabase
         .from('settings')
         .update({ 
-          value: settings,
+          value: settingsJson,
           updated_at: new Date().toISOString()
         })
-        .eq('id', userId);
+        .eq('id', userId) as { error: any };
         
       if (error) {
         console.error('Error updating settings:', error);
@@ -252,13 +303,16 @@ export async function updateUserSettings(userId: string, settings: UserSettings)
     }
     // If settings don't exist, insert them
     else {
+      // Convert settings to a JSON-compatible format
+      const settingsJson = JSON.parse(JSON.stringify(settings));
+      
       const { error } = await supabase
         .from('settings')
         .insert({
           id: userId,
-          value: settings,
+          value: settingsJson,
           updated_at: new Date().toISOString()
-        });
+        }) as { error: any };
         
       if (error) {
         console.error('Error creating settings:', error);
