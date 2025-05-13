@@ -13,6 +13,14 @@ import { toast as sonnerToast } from '@/components/ui/sonner';
 import { RoundResult as ContextRoundResult, GameImage } from '@/contexts/GameContext';
 // Import the RoundResult type expected by ResultsLayout2
 import { RoundResult as LayoutRoundResultType } from '@/utils/resultsFetching';
+// Import standardized scoring system
+import { 
+  MAX_DIST_KM,
+  MAX_TIME_DIFF,
+  calculateTimeAccuracy,
+  calculateLocationAccuracy,
+  getTimeDifferenceDescription
+} from '@/utils/gameCalculations';
 
 // Removed imports for utils/resultsFetching as we use context now
 // import { fetchRoundResult, checkGameProgress, advanceToNextRound } from '@/utils/resultsFetching';
@@ -120,26 +128,30 @@ const RoundResultsPage = () => {
   ): LayoutRoundResultType | null => {
       if (!ctxResult || !img) return null;
 
-      // --- Calculations --- (Keep these)
-      const maxDistKm = 2000;
-      const clampedDist = Math.min(ctxResult.distanceKm ?? maxDistKm, maxDistKm);
-      const locationAccuracy = Math.round(100 * (1 - clampedDist / maxDistKm));
-
+      // --- Calculations using standardized scoring system ---
+      const distanceKm = ctxResult.distanceKm ?? MAX_DIST_KM;
+      
+      // Get the actual values from the context if available, otherwise calculate them
       const actualYear = img.year || 1900;
       const guessYear = ctxResult.guessYear ?? actualYear;
       const yearDifference = Math.abs(actualYear - guessYear);
-
-      const maxYearDiff = 50;
-      const clampedYearDiff = Math.min(yearDifference, maxYearDiff);
-      const timeAccuracy = Math.round(100 * (1 - clampedYearDiff / maxYearDiff));
-
-      const score = ctxResult.score ?? 0;
-      const xpWhere = Math.round(score * 0.7);
-      const xpWhen = Math.round(score * 0.3);
-      const xpTotal = score;
       
-      // Time difference description string
-      const timeDifferenceDesc = yearDifference === 0 ? "Perfect!" : `${yearDifference} year${yearDifference !== 1 ? 's' : ''} off`;
+      // Use the standardized calculations for accuracy percentages
+      const locationAccuracy = ctxResult.xpWhere !== undefined 
+          ? Math.round((ctxResult.xpWhere / 100) * 100) // Convert XP to percentage
+          : Math.round(calculateLocationAccuracy(distanceKm));
+      
+      const timeAccuracy = ctxResult.xpWhen !== undefined
+          ? Math.round((ctxResult.xpWhen / 100) * 100) // Convert XP to percentage
+          : Math.round(calculateTimeAccuracy(guessYear, actualYear));
+      
+      // Use the values from context if available, otherwise calculate
+      const xpWhere = ctxResult.xpWhere ?? Math.round(calculateLocationAccuracy(distanceKm));
+      const xpWhen = ctxResult.xpWhen ?? Math.round(calculateTimeAccuracy(guessYear, actualYear));
+      const xpTotal = ctxResult.score ?? (xpWhere + xpWhen);
+      
+      // Get standardized time difference description
+      const timeDifferenceDesc = getTimeDifferenceDescription(guessYear, actualYear);
 
       // Construct the object matching LayoutRoundResultType from utils/resultsFetching
       const layoutResult: LayoutRoundResultType = {

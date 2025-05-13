@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGame } from "@/contexts/GameContext";
 import { AuthModal } from "@/components/AuthModal";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   Home,
   Users,
@@ -16,14 +18,24 @@ import {
   UserRound,
   Settings,
   LogIn,
-  ShieldCheck
+  ShieldCheck,
+  Target,
+  Zap
 } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 export const NavProfile = () => {
   const { user, signOut, isGoogleUser } = useAuth();
+  const { globalXP, globalAccuracy, fetchGlobalMetrics } = useGame();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const navigate = useNavigate();
+  
+  // Fetch global metrics when the component mounts or when user changes
+  useEffect(() => {
+    if (user) {
+      fetchGlobalMetrics();
+    }
+  }, [user, fetchGlobalMetrics]);
 
   if (!user) {
     return (
@@ -55,14 +67,27 @@ export const NavProfile = () => {
   const initials = getInitial();
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="outline-none">
-        <Avatar className="h-8 w-8 border-2 border-history-secondary/20 hover:border-history-secondary/40 transition-colors">
-          <AvatarFallback className="bg-history-primary text-white text-sm">
-            {initials}
-          </AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
+    <div className="flex items-center gap-3">
+      {/* Display global score metrics */}
+      <div className="hidden md:flex items-center gap-2">
+        <Badge variant="accuracy" className="flex items-center gap-1" title="Global Accuracy">
+          <Target className="h-3 w-3" />
+          <span>{Math.round(globalAccuracy)}%</span>
+        </Badge>
+        <Badge variant="xp" className="flex items-center gap-1" title="Global XP">
+          <Zap className="h-3 w-3" />
+          <span>{globalXP.toLocaleString()}</span>
+        </Badge>
+      </div>
+      
+      <DropdownMenu>
+        <DropdownMenuTrigger className="outline-none">
+          <Avatar className="h-8 w-8 border-2 border-history-secondary/20 hover:border-history-secondary/40 transition-colors">
+            <AvatarFallback className="bg-history-primary text-white text-sm">
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+        </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem asChild>
           <Link to="/test" className="flex items-center">
@@ -113,5 +138,6 @@ export const NavProfile = () => {
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
+    </div>
   );
 };

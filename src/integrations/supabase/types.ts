@@ -326,6 +326,36 @@ export type Database = {
           created_at?: string
         }
         Relationships: []
+      },
+      user_metrics: {
+        Row: {
+          id: string
+          user_id: string
+          xp_total: number
+          overall_accuracy: number
+          games_played: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          xp_total: number
+          overall_accuracy: number
+          games_played: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          xp_total?: number
+          overall_accuracy?: number
+          games_played?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {

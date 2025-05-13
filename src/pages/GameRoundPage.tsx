@@ -2,13 +2,20 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState, useCallback } from 'react';
 import GameLayout1 from "@/components/layouts/GameLayout1";
 import { Loader } from "lucide-react";
-import { useGame, calculateDistance, calculateScore, GuessCoordinates } from '@/contexts/GameContext';
+import { useGame, GuessCoordinates } from '@/contexts/GameContext';
 import { useToast } from "@/components/ui/use-toast";
 import SubmitGuessButton from '@/components/game/SubmitGuessButton';
 import { Button } from '@/components/ui/button';
 import { SegmentedProgressBar } from '@/components/ui';
 import { useHint } from '@/hooks/useHint';
-import { calculateRoundScore } from '@/utils/scoring';
+import { calculateRoundScore as calculateHintPenalty } from '@/utils/scoring';
+import { 
+  calculateDistanceKm, 
+  calculateRoundScore, 
+  calculateTimeXP, 
+  calculateLocationXP, 
+  ROUNDS_PER_GAME 
+} from '@/utils/gameCalculations';
 
 // Rename component
 const GameRoundPage = () => {
@@ -43,7 +50,14 @@ const GameRoundPage = () => {
       ? images[currentRoundIndex] 
       : null;
   
-  const { hintsUsedThisRound } = useHint(imageForRound);
+  // Extract hintsUsed from the useHint hook
+  const { hintsUsed: hintsUsedThisRound } = useHint(imageForRound ? {
+    location_name: imageForRound.location_name,
+    gps: { lat: imageForRound.latitude, lng: imageForRound.longitude },
+    year: imageForRound.year,
+    title: imageForRound.title,
+    description: imageForRound.description
+  } : null);
 
   useEffect(() => {
     // Redirect if roomId doesn't match or roundNumber is invalid
@@ -82,7 +96,7 @@ const GameRoundPage = () => {
 
     try {
         const distance = currentGuess 
-            ? calculateDistance(
+            ? calculateDistanceKm(
             currentGuess.lat,
             currentGuess.lng,
             imageForRound.latitude,
@@ -90,20 +104,25 @@ const GameRoundPage = () => {
             ) 
             : null;
 
-        // Calculate base score without hint penalties
-        const baseScore = distance !== null ? calculateScore(distance) : 0;
+        // Calculate scores using the standardized system
+        const { timeXP, locationXP, roundXP, roundPercent } = distance !== null 
+            ? calculateRoundScore(distance, selectedYear, imageForRound.year) 
+            : { timeXP: 0, locationXP: 0, roundXP: 0, roundPercent: 0 };
         
-        // Apply hint penalties to the score
-        const finalScore = calculateRoundScore(baseScore, hintsUsedThisRound);
+        // Apply hint penalties to the score (10% per hint used)
+        const finalScore = calculateHintPenalty(roundXP, hintsUsedThisRound);
 
-        console.log(`Distance: ${distance?.toFixed(2) ?? 'N/A'} km, Base Score: ${baseScore}, Hints Used: ${hintsUsedThisRound}, Final Score: ${finalScore}`);
+        console.log(`Distance: ${distance?.toFixed(2) ?? 'N/A'} km, Location XP: ${locationXP.toFixed(1)}, Time XP: ${timeXP.toFixed(1)}, Round XP: ${roundXP.toFixed(1)}, Hints Used: ${hintsUsedThisRound}, Final Score: ${finalScore}`);
 
         recordRoundResult(
             {
                 guessCoordinates: currentGuess,
                 distanceKm: distance,
                 score: finalScore,
-                guessYear: selectedYear
+                guessYear: selectedYear,
+                xpWhere: locationXP,
+                xpWhen: timeXP,
+                accuracy: roundPercent
             },
             currentRoundIndex
         );
@@ -122,7 +141,7 @@ const GameRoundPage = () => {
     } finally {
         setTimeout(() => setIsSubmitting(false), 300);
     }
-  }, [currentGuess, imageForRound, toast, roundNumber, selectedYear, recordRoundResult, currentRoundIndex, navigate, roomId, calculateDistance, calculateScore, hintsUsedThisRound]);
+  }, [currentGuess, imageForRound, toast, roundNumber, selectedYear, recordRoundResult, currentRoundIndex, navigate, roomId, hintsUsedThisRound]);
 
   const handleTimeout = () => {
     console.log("Timer expired. Auto-submitting guess.");
@@ -183,7 +202,7 @@ const GameRoundPage = () => {
       {/* Move the progress bar to be part of the navbar by using negative margin */}
       <div className="w-full bg-history-primary">
         <div className="max-w-7xl mx-auto px-4">
-          <SegmentedProgressBar current={roundNumber} total={5} className="w-full -mb-0.5" />
+          <SegmentedProgressBar current={roundNumber} total={ROUNDS_PER_GAME} className="w-full -mb-0.5" />
         </div>
       </div>
        

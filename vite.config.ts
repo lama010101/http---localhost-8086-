@@ -15,12 +15,33 @@ export default defineConfig(({ mode }) => ({
         target: 'https://extensions.aitopia.ai',
         changeOrigin: true,
         secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+        }
       },
       '/ai': {
         target: 'https://extensions.aitopia.ai',
         changeOrigin: true,
         secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+        }
       },
+      'https://extensions.aitopia.ai/': {
+        target: 'https://extensions.aitopia.ai',
+        changeOrigin: true,
+        secure: false,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          'Access-Control-Allow-Headers': 'Origin, X-Requested-With, Content-Type, Accept, Authorization'
+        },
+        rewrite: (path) => path.replace(/^\/https:\/\/extensions\.aitopia\.ai/, '')
+      }
     },
   },
   plugins: [

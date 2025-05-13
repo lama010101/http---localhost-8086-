@@ -3,6 +3,12 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Share2, Loader, Home, MapPin, Calendar, ArrowLeft, Target, Zap } from "lucide-react";
 import { useGame } from "@/contexts/GameContext";
 import { Badge } from "@/components/ui/badge";
+import { 
+  calculateFinalScore,
+  calculateTimeAccuracy,
+  calculateLocationAccuracy,
+  getTimeDifferenceDescription
+} from "@/utils/gameCalculations";
 
 const FinalResultsPage = () => {
   const navigate = useNavigate();
@@ -65,15 +71,38 @@ const FinalResultsPage = () => {
     );
   }
 
-  // Calculate total score from roundResults
-  const totalScore = roundResults?.reduce((total, result) => total + (result?.score || 0), 0) || 0;
-  // Placeholder for total percentage calculation
-  const totalPercentage = roundResults && roundResults.length > 0 ? 
-    roundResults.reduce((acc, curr) => {
-      const roundLocAcc = curr && curr.distanceKm != null ? Math.max(0, 100 - (curr.distanceKm / 2000) * 100) : 0; // Simplified loc accuracy
-      const roundTimeAcc = curr && curr.guessYear && images.find(img => img.id === curr.imageId)?.year ? Math.max(0, 100 - (Math.abs(curr.guessYear - images.find(img => img.id === curr.imageId).year) * 2)) : 0; // Simplified time acc
-      return acc + (roundLocAcc + roundTimeAcc) / 2;
-    }, 0) / roundResults.length : 0;
+  // Calculate final score using the standardized scoring system
+  const roundScores = roundResults.map(result => {
+    // If xpWhere and xpWhen are already calculated, use them
+    if (result.xpWhere !== undefined && result.xpWhen !== undefined) {
+      return {
+        roundXP: result.xpWhere + result.xpWhen,
+        roundPercent: result.accuracy !== undefined ? result.accuracy : 
+          ((result.xpWhere + result.xpWhen) / 200) * 100 // Calculate percentage if not provided
+      };
+    }
+    
+    // Otherwise calculate from raw data
+    const img = images.find(img => img.id === result.imageId);
+    if (!img || result.distanceKm === null || result.guessYear === null) {
+      return { roundXP: 0, roundPercent: 0 };
+    }
+    
+    const locationXP = Math.round(calculateLocationAccuracy(result.distanceKm));
+    const timeXP = Math.round(calculateTimeAccuracy(result.guessYear, img.year));
+    
+    return {
+      roundXP: locationXP + timeXP,
+      roundPercent: ((locationXP + timeXP) / 200) * 100
+    };
+  });
+  
+  // Calculate final score and percentage
+  const { finalXP, finalPercent } = calculateFinalScore(roundScores);
+  
+  // Use the calculated values
+  const totalScore = Math.round(finalXP);
+  const totalPercentage = Math.round(finalPercent);
 
   return (
     <div className="min-h-screen bg-history-light dark:bg-history-dark p-8">
@@ -101,10 +130,23 @@ const FinalResultsPage = () => {
             const result = roundResults?.[index];
             const yearDifference = result?.guessYear && image.year ? 
               Math.abs(result.guessYear - image.year) : 0;
-            // Placeholder for per-round percentage
-            const roundLocAcc = result && result.distanceKm != null ? Math.max(0, 100 - (result.distanceKm / 2000) * 100) : 0;
-            const roundTimeAcc = result && result.guessYear && image.year ? Math.max(0, 100 - (Math.abs(result.guessYear - image.year) * 2)) : 0;
-            const roundPercentage = (roundLocAcc + roundTimeAcc) / 2;
+            // Calculate round accuracy using the standardized system
+            let roundPercentage = 0;
+            
+            // If accuracy is already calculated, use it
+            if (result?.accuracy !== undefined) {
+              roundPercentage = result.accuracy;
+            } 
+            // If xpWhere and xpWhen are available, calculate from them
+            else if (result?.xpWhere !== undefined && result?.xpWhen !== undefined) {
+              roundPercentage = ((result.xpWhere + result.xpWhen) / 200) * 100;
+            }
+            // Otherwise calculate from raw data
+            else if (result?.distanceKm !== null && result?.guessYear !== null) {
+              const locationXP = Math.round(calculateLocationAccuracy(result.distanceKm || 0));
+              const timeXP = Math.round(calculateTimeAccuracy(result.guessYear || 0, image.year || 0));
+              roundPercentage = ((locationXP + timeXP) / 200) * 100;
+            }
             
             return (
               <div
@@ -159,13 +201,13 @@ const FinalResultsPage = () => {
                             )}
                           </span>
                           <div className="flex items-center gap-2">
-                            <Badge variant="accuracy" className="text-xs flex items-center gap-1" aria-label={`Location Accuracy: ${Math.round((result?.distanceKm || 0) > 2000 ? 0 : 100 - (result?.distanceKm || 0) / 20)}%`}>
+                            <Badge variant="accuracy" className="text-xs flex items-center gap-1" aria-label={`Location Accuracy: ${Math.round(calculateLocationAccuracy(result?.distanceKm || 0))}%`}>
                               <Target className="h-2 w-2" />
-                              <span>{Math.round((result?.distanceKm || 0) > 2000 ? 0 : 100 - (result?.distanceKm || 0) / 20)}%</span>
+                              <span>{Math.round(calculateLocationAccuracy(result?.distanceKm || 0))}%</span>
                             </Badge>
-                            <Badge variant="xp" className="text-xs flex items-center gap-1" aria-label={`Location XP: ${Math.round((result?.score || 0) * 0.7)}`}>
+                            <Badge variant="xp" className="text-xs flex items-center gap-1" aria-label={`Location XP: ${Math.round(calculateLocationAccuracy(result?.distanceKm || 0))}`}>
                               <Zap className="h-2 w-2" />
-                              <span>{Math.round((result?.score || 0) * 0.7)}</span>
+                              <span>{Math.round(calculateLocationAccuracy(result?.distanceKm || 0))}</span>
                             </Badge>
                           </div>
                         </div>
@@ -181,17 +223,17 @@ const FinalResultsPage = () => {
                             {yearDifference === 0 ? (
                               <span className="text-green-600 dark:text-green-400 font-medium">Perfect!</span>
                             ) : (
-                              `${yearDifference || '?'} years off`
+                              getTimeDifferenceDescription(result?.guessYear || 0, image.year || 0)
                             )}
                           </span>
                           <div className="flex items-center gap-2">
-                            <Badge variant="accuracy" className="text-xs flex items-center gap-1" aria-label={`Time Accuracy: ${Math.round(yearDifference > 50 ? 0 : 100 - yearDifference * 2)}%`}>
+                            <Badge variant="accuracy" className="text-xs flex items-center gap-1" aria-label={`Time Accuracy: ${Math.round(calculateTimeAccuracy(result?.guessYear || 0, image.year || 0))}%`}>
                               <Target className="h-2 w-2" />
-                              <span>{Math.round(yearDifference > 50 ? 0 : 100 - yearDifference * 2)}%</span>
+                              <span>{Math.round(calculateTimeAccuracy(result?.guessYear || 0, image.year || 0))}%</span>
                             </Badge>
-                            <Badge variant="xp" className="text-xs flex items-center gap-1" aria-label={`Time XP: ${Math.round((result?.score || 0) * 0.3)}`}>
+                            <Badge variant="xp" className="text-xs flex items-center gap-1" aria-label={`Time XP: ${Math.round(calculateTimeAccuracy(result?.guessYear || 0, image.year || 0))}`}>
                               <Zap className="h-2 w-2" />
-                              <span>{Math.round((result?.score || 0) * 0.3)}</span>
+                              <span>{result?.xpWhen || Math.round(calculateTimeAccuracy(result?.guessYear || 0, image.year || 0))}</span>
                             </Badge>
                           </div>
                         </div>

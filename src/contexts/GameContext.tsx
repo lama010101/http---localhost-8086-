@@ -19,6 +19,7 @@ export interface RoundResult {
   guessYear: number | null; // Added year guess
   xpWhere?: number; // Location XP (0-100)
   xpWhen?: number; // Time XP (0-100)
+  accuracy?: number; // Overall accuracy percentage for the round (0-100)
 }
 
 // Define the structure of an image object based on actual schema
@@ -375,9 +376,14 @@ export const useGame = (): GameContextState => { // Ensure hook returns the full
   return context;
 };
 
-// Helper function to calculate distance between two lat/lng points (Haversine formula)
-// Returns distance in kilometers
+// Note: We've moved distance and score calculation to gameCalculations.ts
+// These functions are kept here for backward compatibility but marked as deprecated
+
+/**
+ * @deprecated Use calculateDistanceKm from gameCalculations.ts instead
+ */
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  console.warn('calculateDistance is deprecated. Use calculateDistanceKm from gameCalculations.ts instead');
   const R = 6371; // Radius of the Earth in km
   const dLat = deg2rad(lat2 - lat1);
   const dLon = deg2rad(lon2 - lon1);
@@ -394,9 +400,11 @@ function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
 }
 
-// Example scoring function (adjust as needed)
-// Lower distance = higher score. Max score 5000.
+/**
+ * @deprecated Use calculateRoundScore from gameCalculations.ts instead
+ */
 export function calculateScore(distanceKm: number): number {
+    console.warn('calculateScore is deprecated. Use calculateRoundScore from gameCalculations.ts instead');
     const maxDistanceForPoints = 2000; // Max distance (km) where points are awarded
     const maxScore = 5000;
 
